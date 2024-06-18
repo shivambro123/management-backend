@@ -5,7 +5,12 @@ const cors = require("cors");
 const app = express();
 const uri =
   "mongodb+srv://speaktoshivam24:LNuDm2AbmhvolYMN@cluster0.cxqf6rp.mongodb.net/";
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  ssl: true,
+  tlsAllowInvalidCertificates: false,
+});
 app.use(cors());
 
 const startServer = async () => {
@@ -13,7 +18,11 @@ const startServer = async () => {
     await client.connect();
     const db = client.db("management");
 
-    // customer 
+    app.get("/", async (req, res) => {
+      res.send("welcome");
+    });
+
+    // customer
 
     app.get("/customers", async (req, res) => {
       try {
@@ -42,7 +51,7 @@ const startServer = async () => {
           .find({ account_id: accountId })
           .toArray();
 
-          console.log("Transactions:", transactions);
+        console.log("Transactions:", transactions);
 
         if (transactions.length === 0) {
           console.log(
@@ -62,73 +71,68 @@ const startServer = async () => {
 
     // transaction by less than 5000
 
- app.get("/transaction/lt5k", async (req, res) => {
-   try {
-     const transactions = await db
-       .collection("transactions")
-       .aggregate([
-         { $unwind: "$transactions" },
-         { $match: { "transactions.amount": { $lt: 5000 } } },
-      
-       ])
-       .toArray();
+    app.get("/transaction/lt5k", async (req, res) => {
+      try {
+        const transactions = await db
+          .collection("transactions")
+          .aggregate([
+            { $unwind: "$transactions" },
+            { $match: { "transactions.amount": { $lt: 5000 } } },
+          ])
+          .toArray();
 
-     if (transactions.length === 0) {
-       console.log("No transactions found");
-       return res
-         .status(404)
-         .json({ message: "No transactions found" });
-     }
+        if (transactions.length === 0) {
+          console.log("No transactions found");
+          return res
+            .status(404)
+            .json({ message: "No transactions found" });
+        }
 
-     res.json(transactions);
-   } catch (error) {
-     console.error("Error retrieving transactions:", error);
-     res.status(500).json({
-       error: "An error occurred while retrieving transactions",
-     });
-   }
- });
-    
-    
+        res.json(transactions);
+      } catch (error) {
+        console.error("Error retrieving transactions:", error);
+        res.status(500).json({
+          error: "An error occurred while retrieving transactions",
+        });
+      }
+    });
+
     // products
 
-app.get("/products", async (req, res) => {
-  try {
-    const products = await db
-      .collection("accounts")
-      .aggregate([
-        { $unwind: "$products" },
-        {
-          $group: {
-            _id: null,
-            distinctProducts: { $addToSet: "$products" },
-          },
-        },
-        { $project: { _id: 0, distinctProducts: 1 } },
-      ])
-      .toArray();
+    app.get("/products", async (req, res) => {
+      try {
+        const products = await db
+          .collection("accounts")
+          .aggregate([
+            { $unwind: "$products" },
+            {
+              $group: {
+                _id: null,
+                distinctProducts: { $addToSet: "$products" },
+              },
+            },
+            { $project: { _id: 0, distinctProducts: 1 } },
+          ])
+          .toArray();
 
-    if (
-      products.length === 0 ||
-      !products[0].distinctProducts.length
-    ) {
-      console.log("No products found");
-      return res.status(404).json({ message: "No products found" });
-    }
+        if (
+          products.length === 0 ||
+          !products[0].distinctProducts.length
+        ) {
+          console.log("No products found");
+          return res
+            .status(404)
+            .json({ message: "No products found" });
+        }
 
-    res.json(products[0].distinctProducts);
-  } catch (error) {
-    console.error("Error retrieving products:", error);
-    res.status(500).json({
-      error: "An error occurred while retrieving products",
+        res.json(products[0].distinctProducts);
+      } catch (error) {
+        console.error("Error retrieving products:", error);
+        res.status(500).json({
+          error: "An error occurred while retrieving products",
+        });
+      }
     });
-  }
-});
-    
-    app.get("/", async (req, res) => {
-      res.send("welcome");
-    });
-
 
     app.listen(5000, () => {
       console.log("Server running on port 5000");
