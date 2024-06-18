@@ -124,6 +124,10 @@ app.get("/products", async (req, res) => {
     });
   }
 });
+    
+    app.get("/", async (req, res) => {
+      res.send("welcome");
+    });
 
 
     app.listen(5000, () => {
