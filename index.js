@@ -13,16 +13,22 @@ const client = new MongoClient(uri, {
 });
 app.use(cors());
 
+const createIndexes = async (db) => {
+  await db
+    .collection("transactions")
+    .createIndex({ "transactions.amount": 1 });
+};
+
 const startServer = async () => {
   try {
     await client.connect();
     const db = client.db("management");
 
-    app.get("/", async (req, res) => {
-      res.send("welcome");
-    });
+    await createIndexes(db); // Create necessary indexes
 
-    // customer
+    app.get("/", (req, res) => {
+      res.send("Welcome");
+    });
 
     app.get("/customers", async (req, res) => {
       try {
@@ -38,8 +44,6 @@ const startServer = async () => {
         });
       }
     });
-
-    // transaction
 
     app.get("/accounts/transactions/:id", async (req, res) => {
       try {
@@ -69,15 +73,26 @@ const startServer = async () => {
       }
     });
 
-    // transaction by less than 5000
-
+    // Optimized transaction route with pagination
     app.get("/transaction/lt5k", async (req, res) => {
       try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 100;
+        const skip = (page - 1) * limit;
+
         const transactions = await db
           .collection("transactions")
           .aggregate([
             { $unwind: "$transactions" },
             { $match: { "transactions.amount": { $lt: 5000 } } },
+            {
+              $project: {
+                _id: 0,
+                transaction: "$transactions",
+              },
+            },
+            { $skip: skip },
+            { $limit: limit },
           ])
           .toArray();
 
@@ -96,8 +111,6 @@ const startServer = async () => {
         });
       }
     });
-
-    // products
 
     app.get("/products", async (req, res) => {
       try {
